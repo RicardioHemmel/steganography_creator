@@ -14,13 +14,24 @@ def ler_mensagem_arquivo(caminho_txt):
 def esconder_mensagem(imagem_origem, mensagem, imagem_saida):
     # Compacta a mensagem
     mensagem_comprimida = zlib.compress(mensagem.encode('utf-8'))
-    mensagem_bin = ''.join(f'{byte:08b}' for byte in mensagem_comprimida) + '00000000'  # delimitador de fim
+
+    # Adiciona prefixo com tamanho da mensagem comprimida (4 bytes)
+    tamanho = len(mensagem_comprimida)
+    tamanho_bytes = tamanho.to_bytes(4, byteorder='big')
+    dados_para_inserir = tamanho_bytes + mensagem_comprimida
+
+    # Transforma em binário
+    mensagem_bin = ''.join(f'{byte:08b}' for byte in dados_para_inserir)
 
     img = Image.open(imagem_origem).convert("RGB")
     pixels = img.load()
     largura, altura = img.size
-    idx = 0
 
+    capacidade_bits = largura * altura
+    if len(mensagem_bin) > capacidade_bits:
+        return False  # imagem pequena demais
+
+    idx = 0
     for y in range(altura):
         for x in range(largura):
             if idx < len(mensagem_bin):
@@ -29,10 +40,12 @@ def esconder_mensagem(imagem_origem, mensagem, imagem_saida):
                 pixels[x, y] = (r, g, b)
                 idx += 1
             else:
-                img.save(imagem_saida, compress_level=1)
+                img.save(imagem_saida, format='PNG', compress_level=0, optimize=False)
                 return True
 
-    return False  # imagem muito pequena
+    # Se terminou exatamente no último pixel
+    img.save(imagem_saida, format='PNG', compress_level=0, optimize=False)
+    return True
 
 class EsteganografiaApp(ctk.CTk):
     def __init__(self):
